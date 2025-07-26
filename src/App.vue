@@ -2,6 +2,12 @@
 import { ref, onMounted,watch } from "vue"
 import axios from 'axios'
 
+// const l_r = {
+//   "Login":"登录",
+//   "Register":"",
+// }  // 非响应式
+
+const r = ref(true)
 const status = ref(false)
 const todo = ref("")
 const ab = ref<{id: number, text: string, check: number}[]>([])
@@ -22,6 +28,29 @@ const uid = ref("")
 //   }
 // })
 
+// 加一个后端拦截器 应对响应状态
+
+const request = axios.create({
+  // baseURL: '/api', // 你的接口基础路径
+  timeout: 5000
+});
+
+// 添加请求拦截器：在所有请求发送前，自动添加令牌到请求头
+request.interceptors.request.use(
+  config => {
+    // 从 localStorage 中获取令牌
+    const token = localStorage.getItem('Bearer');
+    if (token) {
+      // 注意：JWT 通常要求格式为 "Bearer <令牌>"（Bearer + 空格 + 令牌）
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  error => {
+    return Promise.reject(error);
+  }
+);
+
 onMounted(() => {
   // 只有已登录时才处理（未登录不执行任何操作）
     if (uid.value !== '') {
@@ -38,9 +67,10 @@ onMounted(() => {
 
 
 function query(){
-  axios.post(("http://127.0.0.1:5000/api/query"),
+  request.post(("http://127.0.0.1:5000/api/query"),
   {
     userid: uid.value,
+    token: localStorage.getItem("Bearer")
   }).then(res => {
         ab.value = res.data.map((item: any) => ({
             id: item.tipid,
@@ -55,9 +85,10 @@ function add() {
         alert("请输入");
     } else {
         todo.value = todo.value.trim();
-        axios.post("http://127.0.0.1:5000/api/add", {
+        request.post("http://127.0.0.1:5000/api/add", {
             todo: todo.value,
-            userid:uid.value
+            userid:uid.value,
+            token: localStorage.getItem("Bearer")
         }).then(res => {
             if (res.data.success) { // 成功2xx
                 ab.value.push({ id: res.data.id, text: todo.value, check: 0 });
@@ -74,8 +105,8 @@ function add() {
 
 function sub(index: number,id: number) {
     const targetid = id;
-    axios.post("http://127.0.0.1:5000/api/sub", {
-        id: targetid
+    request.post("http://127.0.0.1:5000/api/sub", {
+        id: targetid,
         // 先做一个id查询---jwt: jwt
     }).then(res => {
         if (res.data.success) {
@@ -89,11 +120,11 @@ function sub(index: number,id: number) {
 }
 
 function tick(index: number,id: number) {
-    axios({
+    request({
         url: "http://127.0.0.1:5000/api/tick",
         method: "POST",
         data:{
-            id:id
+            token:localStorage.getItem("Bearer")
         }
     }).then((res) =>{
             if(res.data.success){
@@ -105,7 +136,7 @@ function tick(index: number,id: number) {
 
 function Login(){
   // 这里其实应该还有验证密码和账号是不是有一个为空的情况
-  axios({
+  request({
     url: "http://127.0.0.1:5000/api/login",
     method: "POST",
     // 注意是data:{}而不是data{}
@@ -121,6 +152,7 @@ function Login(){
           // 前端可以伪造发送id从而导致泄露
           // 我目前想到的是jwt发送后端解析jwt因为前端无法伪造jwt
           uid.value = res.data.id;
+          localStorage.setItem("Bearer",res.data.Auth)
           isLogin.value = true;
           console.log(uid.value)
       }
@@ -143,6 +175,31 @@ function Login(){
 //     }
 //   }
 // }
+
+function register(){
+  if (r.value == true || !(username.value.trim() && password.value.trim()))
+  {
+    r.value = !r.value;
+  }
+  else{
+    request.post(("/api/register"),{
+      username:username.value.trim(),
+      password:password.value.trim(),
+    }).then((res)=>{
+      if(res.data.success){
+        uid.value = res.data.id
+        // console.log(uid.value)
+        r.value = !r.value;
+        isLogin.value = !isLogin.value;
+        localStorage.setItem("Bearer",res.data.Auth);
+      }else{
+        alert("注册失败");
+      }
+    })
+
+    // console.log(uid.value)
+  }
+}
 
 function showError(){
   status.value = true
@@ -179,10 +236,15 @@ function handleLogin() {
       </div>
     </div>
     <div v-if="!isLogin" class="Login">
-      <h2>Login</h2>
-      <label>账号<input type="text" v-model="username" /></label><br>
-      <label>密码<input type="password" v-model="password"/></label><br>
-      <button @click="Login">登录</button>
+      <h2>{{r?"登录":"注册"}}</h2>
+      <label>账号<input type="text" v-model="username" /></label>
+      <label>密码<input type="password" v-model="password"/></label>
+      <div>
+      <!-- 目前有个新想法设计l&r对象使用下标来访问 第一个h2标签是Login还是Register -->
+      <button v-if="r" @click="Login">登录</button>
+      <!-- 点击登陆后 Login变成Register 登录按钮消失 -->
+      <button @click="register" :style="{width:r?'90%':'50%'}">注册</button>
+      </div>
       <svg xmlns="http://www.w3.org/2000/svg" @click="handleLogin" id="login_bu" width="16" height="16" fill="currentColor" class="bi bi-backspace" viewBox="0 0 16 16" >
         <path d="M5.83 5.146a.5.5 0 0 0 0 .708L7.975 8l-2.147 2.146a.5.5 0 0 0 .707.708l2.147-2.147 2.146 2.147a.5.5 0 0 0 .707-.708L9.39 8l2.146-2.146a.5.5 0 0 0-.707-.708L8.683 7.293 6.536 5.146a.5.5 0 0 0-.707 0z"/>
         <path d="M13.683 1a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-7.08a2 2 0 0 1-1.519-.698L.241 8.65a1 1 0 0 1 0-1.302L5.084 1.7A2 2 0 0 1 6.603 1h7.08zm-7.08 1a1 1 0 0 0-.76.35L1 8l4.844 5.65a1 1 0 0 0 .759.35h7.08a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1h-7.08z"/>
@@ -326,9 +388,20 @@ body {
     border: 1.5px solid #ba36dd;
     box-shadow: 0 0 0 2px #e9d6f7;
 }
+.Login div{
+  /* margin-top: 12px; */
+  /* background-color: red; */
+  /* justify-content: space-between; */
+  width: 200px;
+  display: flex;
+  justify-content: center;
+  flex-direction: row;
+  padding-left: 8px;
+}
 .Login button {
-    margin-top: 12px;
-    width: 100%;
+    margin-right:5px;
+
+    width: 90%;
     padding: 12px 0;
     background: linear-gradient(90deg, #ba36dd 0%, #6d36dd 100%);
     color: #fff;

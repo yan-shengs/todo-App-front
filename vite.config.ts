@@ -15,4 +15,11 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     },
   },
+  server:{
+    proxy:{
+      '/api':{ // 匹配url前缀为api的接口
+        target: "http://localhost:5000"
+      }
+    }
+  }
 })
