@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref,watch } from 'vue'
 import axios from 'axios'
+import Basiclayouts from './components/Basiclayouts.vue'
+
 
 const isLoginView = ref(true) // 登录页面 or 注册页面
 const iserror = ref(false) // 控制失败浮窗
@@ -50,6 +52,8 @@ function query() {
 function handleLogin() {
   // 这里可以加实际登录逻辑，成功后：
   isLoginStatus.value = true
+  // 为了防止在注册框中点击叉叉导致下一次原本进入登录框时，却进入了注册框
+  isLoginView.value = true // 需要校验最后为true 登录框 因为进入注册框的按钮会调整isLoginView的值
 }
 
 function showError() {
@@ -182,6 +186,9 @@ function add() {
 </script>
 
 <template>
+  <Basiclayouts :isLoginStatus="isLoginStatus"
+  @changeLoginStatus='isLoginStatus = !isLoginStatus'
+  @changeRigsterStatus="isLoginStatus = !isLoginStatus;isLoginView=!isLoginView"/>
   <div id="container">
     <div :class="['todo-blur-wrap', { blur: !isLoginStatus }]">
       <div class="menu">
