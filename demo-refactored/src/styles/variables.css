@@ -1,0 +1,92 @@
+/* 保持原有的渐变色和紫色主题 */
+:root {
+  --primary-gradient: linear-gradient(90deg, #ba36dd 0%, #6d36dd 100%);
+  --primary-gradient-hover: linear-gradient(90deg, #6d36dd 0%, #ba36dd 100%);
+  --primary-color: #6d36dd;
+  --primary-light: #ba36dd;
+  --background-gradient: linear-gradient(120deg, #a18cd1 0%, #fbc2eb 100%);
+  --card-bg: rgba(255, 255, 255, 0.98);
+  --card-shadow: 0 4px 24px rgba(161, 140, 209, 0.12);
+  --border-color: #e0e0e0;
+  --focus-color: #e9d6f7;
+  --text-color: #333;
+  --text-light: #555;
+  --success-color: #4caf50;
+  --error-color: #e53e3e;
+  --warning-color: #ff9800;
+}
+
+/* 全局样式保持原风格 */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background: var(--background-gradient);
+  font-family: 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Arial', sans-serif;
+  color: var(--text-color);
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+  background: #f3eaff;
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--primary-light);
+  border-radius: 8px;
+}
+
+/* 通用动画 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* 通用工具类 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.slide-enter-active,
+.slide-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-enter-from {
+  opacity: 0;
+  transform: translateX(-30px);
+}
+
+.slide-leave-to {
+  opacity: 0;
+  transform: translateX(30px);
+}

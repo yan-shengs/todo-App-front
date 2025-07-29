@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref,watch } from 'vue'
+import { ref, nextTick, watch } from 'vue'
 import axios from 'axios'
 import Basiclayouts from './components/Basiclayouts.vue'
+import * as echarts from 'echarts' // 引入echarts
 
-
+// 如果在这里使用const定义 不能给上面的变量或函数使用
 const isLoginView = ref(true) // 登录页面 or 注册页面
 const iserror = ref(false) // 控制失败浮窗
 const content = ref('') // 事务
@@ -12,6 +13,146 @@ const queue = ref<{ id: number; text: string; check: number }[]>([])
 const isLoginStatus = ref(false) // 登录状态
 const username = ref('') // 用户名
 const password = ref('') // 密码
+
+const userinfo = ref(false) // true显示userinfo
+
+// const echartsdom = ref<null|HTMLElement>(null) // 限制两种类型赋值null
+// 老方法失效
+// 引入echarts
+// const echarts = require("echarts");
+
+// 初始化echarts实例
+// const angle = echarts.init(document.getElementById("angle"))
+// 由于angle的dom尚未挂载，angle返回null导致报错 由于userinfo是响应变量可以通过watch监听
+
+// 图表实例（全局变量，避免重复创建）
+// let chartInstance:number = 0 // 用于监听图标是否生成
+// 1. 定义全局图表实例（外部声明，避免每次重新定义）
+let chartInstance: echarts.ECharts | null = null
+
+// userinfo的值初始化函数
+watch(userinfo, async (val) => {
+  if (val) {
+    updatecharts()
+  }
+})
+
+// 更新
+watch(queue, () => {
+  // 应该是数据更新时图表渲染，userinfo只是控制展示图表
+  if (chartInstance && userinfo.value) {
+    updatecharts()
+  }
+})
+
+async function updatecharts() {
+  await nextTick() // 等待dom渲染
+  const angleDom = document.getElementById('angle')
+
+  if (angleDom) {
+    if (chartInstance) {
+      // 问题代码：每次触发时直接创建新实例，未处理旧实例
+      chartInstance.dispose()
+    }
+    // if(chartInstance == 1){
+    //   angle.dispose()
+    //   chartInstance = 0
+    // }
+    // 需要考虑两个值都为0，导致的一半一半
+    chartInstance = echarts.init(angleDom) // 需要声明全局变量
+    const completed = queue.value.filter((item) => item.check == 2).length
+    const remaining = queue.value.filter((item) => item.check == 1).length
+
+    if (completed == 0 && remaining == 0) {
+      chartInstance.setOption({
+        series: [
+          {
+            name: '计划完成表',
+            type: 'pie', // 饼图
+            radius: '50%', // 视图高宽较小的50%
+            data: [{ value: remaining, name: '无数据' }],
+            label: {
+            // 统一设置标签样式，也可根据数据长度动态调整
+            fontSize: 20, // 只有 1 项时放大标签
+            show: true
+            },
+          },
+        ],
+      })
+    }
+    else if(remaining === 0 && completed > 0){
+        chartInstance.setOption({
+        series: [
+          {
+            name: '计划完成表',
+            type: 'pie', // 饼图
+            radius: '50%', // 视图高宽较小的50%
+            data: [{ value: completed, name: '已完成' }],
+            label: {
+            // 统一设置标签样式，也可根据数据长度动态调整
+            fontSize: 20, // 只有 1 项时放大标签
+            show: true
+            },
+          },
+        ],
+      })
+    }
+    else if(completed === 0 && remaining > 0){
+        chartInstance.setOption({
+        series: [
+          {
+            name: '计划完成表',
+            type: 'pie', // 饼图
+            radius: '50%', // 视图高宽较小的50%
+            data: [{ value: remaining, name: '未完成' }],
+            label: {
+            // 统一设置标签样式，也可根据数据长度动态调整
+            fontSize: 20, // 只有 1 项时放大标签
+            show: true
+            },
+          },
+        ],
+      })
+    }
+    else {
+      console.log(queue.value)
+      console.log(completed)
+      console.log(remaining)
+      // 利用echarts实例生成饼图
+      chartInstance.setOption({
+        series: [
+          {
+            name: '计划完成表',
+            type: 'pie', // 饼图
+            radius: '50%', // 视图高宽较小的50%
+            data: [
+              { value: completed, name: '未完成' },
+              { value: remaining, name: '已完成' },
+            ],
+            label: {
+            // 统一设置标签样式，也可根据数据长度动态调整
+            fontSize: 16, // 只有 1 项时放大标签
+            show: true
+            },
+          },
+        ],
+      })
+    }
+    // chartInstance = 1;
+  }
+  // const completed = Object.values(queue.value).filter(check => check.check == 2) // 完成
+  // const remaining = Object.values(queue.value).filter(check => check.check == 1) // 未完成
+}
+
+// // 如果在这里使用const定义 不能给上面的变量或函数使用
+// const isLoginView = ref(true) // 登录页面 or 注册页面
+// const iserror = ref(false) // 控制失败浮窗
+// const content = ref('') // 事务
+// const queue = ref<{ id: number; text: string; check: number }[]>([])
+// // 对象范式 集成-事务id 事物content 是否打勾check
+// const isLoginStatus = ref(false) // 登录状态
+// const username = ref('') // 用户名
+// const password = ref('') // 密码
 
 const request = axios.create({
   // baseURL: '/api', // url基础路径
@@ -64,6 +205,23 @@ function showError() {
   }, 2000)
 }
 
+// function queryUserInfo(){
+//   axios.post(("http://127.0.0.1:5000/api/subAccount"),{
+//     token: localStorage.getItem("Bearer")
+//   }).then((res) =>{
+//     if(res.data.status){
+//       username:
+//     }
+//   })
+// }
+
+
+// function UserInfo(){
+//   if(userinfo.value == true){ // 打开用户视图
+//     queryUserInfo()
+//   }
+// }
+
 function register() {
   if (isLoginView.value == true || !(username.value.trim() && password.value.trim())) {
     isLoginView.value = !isLoginView.value
@@ -82,9 +240,11 @@ function register() {
         } else {
           alert('注册失败')
         }
-      }).catch(()=>{ // 状态码返回4xx 5xx
+      })
+      .catch(() => {
+        // 状态码返回4xx 5xx
         showError()
-        alert("用户和密码已存在")
+        alert('用户和密码已存在')
       })
   }
 }
@@ -117,31 +277,36 @@ function Login() {
     })
 }
 
-function tick(index: number) {
+function tick(id: number, index: number) {
   request({
     url: 'http://127.0.0.1:5000/api/tick',
     method: 'POST',
     data: {
-      id: index + 1, // 数据库从1开始 但是网页从0开始
+      id: id, // 传入的是info id
     },
   }).then((res) => {
     if (res.data.status) {
-      console.log(index)
+      // console.log(index)
+      // const item = queue.value.find(query => query.id === index)
+      // if (item) {
+      //   item.check = !item.check
+      // }
+      // queue.value[index].check = res.data.data.data
       queue.value[index].check = res.data.data.data
       query()
     }
   })
 }
 
-function sub(index: number) {
+function sub(id: number) {
   request
     .post('http://127.0.0.1:5000/api/subContent', {
-      id: index,
+      id: id,
       // 先做一个id查询---jwt: jwt
     })
     .then((res) => {
       if (res.data.status) {
-        queue.value.splice(index, 1)
+        // queue.value.splice(id, 1) 这一段没必要因为删除后触发查询会将queue 覆盖
         query()
       } else {
         alert(res.data.msg || '删除失败')
@@ -186,10 +351,20 @@ function add() {
 </script>
 
 <template>
-  <Basiclayouts :isLoginStatus="isLoginStatus"
-  @changeLoginStatus='isLoginStatus = !isLoginStatus'
-  @changeRigsterStatus="isLoginStatus = !isLoginStatus;isLoginView=!isLoginView"/>
-  <div id="container">
+  <Basiclayouts
+    :isLoginStatus="isLoginStatus"
+    @changeLoginStatus="
+      isLoginStatus = !isLoginStatus;
+      userinfo = false
+    "
+    @changeRigsterStatus="
+      isLoginStatus = !isLoginStatus;
+      isLoginView = !isLoginView;
+      userinfo = false
+    "
+    @isUserInfo="userinfo = !userinfo"
+  />
+  <div id="container" v-if="!userinfo">
     <div :class="['todo-blur-wrap', { blur: !isLoginStatus }]">
       <div class="menu">
         <h1>Todo App</h1>
@@ -209,7 +384,12 @@ function add() {
           :class="item.check == 2 ? 'tcheck1' : 'tcheck'"
         >
           <div>
-            <input @change="tick(index)" :checked="item.check == 2" type="checkbox" name="todo" />
+            <input
+              @change="tick(item.id, index)"
+              :checked="item.check == 2"
+              type="checkbox"
+              name="todo"
+            />
             <span>{{ item.text }}</span>
           </div>
           <div class="del" @click="sub(item.id)">del</div>
@@ -256,9 +436,215 @@ function add() {
       </div>
     </transition>
   </div>
+
+  <!-- 用户信息页面 -->
+  <!-- 为ECharts准备一个具备大小（宽高）的Dom -->
+  <div id="user" v-if="userinfo">
+    <div id="angle">
+      <div style="width: 600px; height: 200px; position: relative"></div>
+    </div>
+    <!-- 齿印分隔线 -->
+    <!-- <div class="tooth-divider"></div> -->
+
+    <!-- 在#user内部添加分隔线
+    <div class="tooth-divider"></div> -->
+    <div id="uinfo">
+      <div id="utitle">用户信息</div>
+      <span>用户名:{{username}}</span><br />
+      <span>密码:{{password}}</span>
+    </div>
+  </div>
 </template>
 
+<!-- 想要分离文件查找样式和交互逻辑(js)有些麻烦 -->
+
 <style>
+/* 齿印分隔线样式 */
+.tooth-divider {
+  /* 垂直方向的齿印（高度100%，宽度10px） */
+  width: 10px;
+  height: 100%;
+  /* 使用线性渐变绘制齿印 */
+  background-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 40%,
+    transparent 40%,
+    transparent 60%,
+    #000 60%,
+    #000 100%
+  );
+  /* 重复渐变形成连续齿印 */
+  background-size: 10px 20px; /* 每个齿印单元：宽10px，高20px */
+  background-repeat: repeat-y;
+}
+
+/* 水平方向的齿印（宽度100%，高度10px） */
+.tooth-divider-horizontal {
+  width: 100%;
+  height: 10px;
+  background-image: linear-gradient(
+    to right,
+    #000 0%,
+    #000 40%,
+    transparent 40%,
+    transparent 60%,
+    #000 60%,
+    #000 100%
+  );
+  background-size: 20px 10px; /* 每个齿印单元：宽20px，高10px */
+  background-repeat: repeat-x;
+}
+
+/* 示例：双栏布局中间的齿印分隔 */
+.two-column-layout {
+  display: flex;
+  width: 800px;
+  height: 500px;
+  margin: 20px auto;
+}
+
+.left-panel,
+.right-panel {
+  flex: 1;
+  background: #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+/* 黑色背景上的白色齿印 */
+.dark-theme .tooth-divider {
+  background-image: linear-gradient(
+    to bottom,
+    #fff 0%,
+    #fff 40%,
+    transparent 40%,
+    transparent 60%,
+    #fff 60%,
+    #fff 100%
+  );
+}
+
+#utitle {
+  font-size: 40px;
+  z-index: 10;
+  /* 为了定位父容器top等属性 父元素需要relative */
+  position: absolute;
+  top: 25px;
+  left: 20px;
+}
+
+/* 垂直齿印分隔线 */
+/* .tooth-divider {
+  width: 10px;
+  background-image: linear-gradient(
+    to bottom,
+    rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.3) 40%,
+    transparent 40%, transparent 60%,
+    rgba(255,255,255,0.3) 60%, rgba(255,255,255,0.3) 100%
+  );
+  background-size: 10px 20px;
+  background-repeat: repeat-y;
+} */
+
+#angle {
+  /* gap: 20px; */
+  background-color: #f8f9fa; /* 浅灰替代纯白，减少刺眼感 */
+  border-radius: 20px 0 0 20px;
+  padding: 20px; /* 增加内边距，避免内容贴边 */
+  display: flex;
+  flex-direction: column; /* 内部文字和图表垂直排列 */
+  align-items: center; /* 水平居中 */
+}
+
+#uinfo {
+  position: relative;
+  display: flex;
+  /*
+  容器内的元素非字体居中
+  align-items: cneter;
+  justify-items: center;
+  */
+  background: linear-gradient(-120deg, #333 0%, #111 100%); /* 深灰渐变，替代黑白，减少刺眼 */
+  border-radius: 0 20px 20px 0;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white; /* 文字设为白色，适配深色背景 */
+}
+
+#uinfo {
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(-120deg, white 0%, black 100%);
+  width: 90vw;
+  max-width: 800px;
+  min-height: 500px;
+  border-radius: 0 20px 20px 0px;
+  justify-content: center;
+  align-items: center;
+  /* 逆时针 */
+}
+
+#user {
+  margin: 20px auto;
+  border-radius: 25px;
+  display: flex;
+  justify-content: center;
+  width: 90vw;
+  max-width: 1200px;
+  min-height: 500px;
+  overflow: hidden; /*避免子元素圆角溢出 */
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); /* 增加阴影，提升立体感 */
+}
+
+/* 设计思想是左右对齐，因此最好样式一致 */
+#uinfo,
+#angle {
+  flex: 1; /*左右对齐 */
+  min-height: 500px; /*保持高度*/
+}
+
+#angle span {
+  font-size: 24px; /* 缩小标题字体，避免过大 */
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 20px; /* 与图表保持距离 */
+}
+
+#angle > div {
+  /* 图表容器 */
+  width: 100%; /* 占满父容器宽度 */
+  height: calc(100% - 60px); /* 减去标题高度，避免溢出 */
+  min-height: 350px;
+  background-color: white; /* 图表区域用白色，突出内容 */
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); /* 轻微阴影，区分区域 */
+}
+
+#uinfo > span {
+  /* 取消display:flex，改用块级元素垂直排列 */
+  display: block;
+  width: 80%; /* 适当缩小宽度，避免过宽 */
+  padding: 16px 20px; /* 用padding替代height，更灵活 */
+  margin: 12px 0; /* 增加上下间距，替代<br> */
+  background-color: rgba(255, 255, 255, 0.1); /* 半透明白色，适配深色背景 */
+  border-radius: 12px;
+  font-size: 18px; /* 缩小字体，更精致 */
+  text-align: center;
+  transition: all 0.3s ease; /* 增加过渡动画 */
+}
+
+#uinfo > span:hover {
+  background-color: rgba(255, 255, 255, 0.2); /*  hover时加深背景 */
+  transform: translateY(-2px); /* 轻微上浮，增加交互感 */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
 body {
   min-height: 100vh;
   margin: 0;

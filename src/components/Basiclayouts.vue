@@ -8,7 +8,7 @@ const props = defineProps<{
 
 // 或者采用解包的形式
 
-defineEmits(["changeLoginStatus","changeRigsterStatus"])
+defineEmits(["changeLoginStatus","changeRigsterStatus","isUserInfo"])
 // defineEmits(["changeRigsterStatus"]) 只能调用一次
 
 </script>
@@ -36,7 +36,7 @@ defineEmits(["changeLoginStatus","changeRigsterStatus"])
       <div class="nav-right" >
         <!-- v-if="props.isLoginStatus" 需要给template一个逻辑控制否则直接不渲染 -->
         <template v-if="props.isLoginStatus">
-          <div class="nav-item">用户信息</div>
+          <div @click="$emit('isUserInfo')" class="nav-item">用户信息</div>
           <div class="nav-item">导出</div>
         </template>
       </div>
